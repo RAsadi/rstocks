@@ -2,6 +2,7 @@ use std::collections::hash_map::HashMap;
 use std::env::args;
 use std::io;
 use std::io::Read;
+use std::sync::{Arc, Mutex};
 use std::{thread, time};
 
 use termion::{async_stdin, event::Key, input::TermRead, raw::IntoRawMode};
@@ -53,16 +54,30 @@ fn main() -> Result<(), io::Error> {
     let pos_style = Style::default().fg(Color::Green);
     let neg_style = Style::default().fg(Color::Red);
 
-    let mut quotes: HashMap<String, api::Quote> = HashMap::new();
-    let mut historical_quotes: SortedBTreeMap = SortedBTreeMap::new(32);
-    let sleep_time = time::Duration::from_secs(1);
+    let quotes: Arc<Mutex<HashMap<String, api::Quote>>> = Arc::new(Mutex::new(HashMap::new()));
+    let historical_quotes: Arc<Mutex<SortedBTreeMap>> = Arc::new(Mutex::new(SortedBTreeMap::new(32)));
     let mut tab_index = LoopingIndex::new(0);
     let headers = api::Quote::get_table_headers();
-    loop {
-        // Fetching quotes
-        fetch_quotes(&mut historical_quotes, &mut quotes, &args);
+    let thread_historical_quotes = historical_quotes.clone();
+    let thread_quotes = quotes.clone();
 
-        tab_index.max_size = quotes.len() + 1;
+    // repeatedly fetch quotes based on timeout
+    thread::spawn(move || {
+        let sleep_time = time::Duration::from_secs(1);
+        loop {
+            fetch_quotes(
+                &mut thread_historical_quotes.lock().unwrap(),
+                &mut thread_quotes.lock().unwrap(),
+                &args,
+            );
+            thread::sleep(sleep_time);
+        }
+    });
+
+    loop {
+        let locked_historical_quotes = historical_quotes.lock().unwrap();
+        let locked_quotes = quotes.lock().unwrap();
+        tab_index.max_size = locked_quotes.len() + 1;
         // Drawing UI
         terminal.draw(|f| {
             // Define sizes
@@ -76,7 +91,7 @@ fn main() -> Result<(), io::Error> {
              * Tabs
              *****************/
             let mut titles = vec!["Summary"];
-            for (k, _) in historical_quotes.get_btree_map().iter() {
+            for (k, _) in locked_historical_quotes.get_btree_map().iter() {
                 titles.push(k);
             }
             let tab_titles = titles.iter().cloned().map(Spans::from).collect();
@@ -94,7 +109,7 @@ fn main() -> Result<(), io::Error> {
             if tab_index.index == 0 {
                 // Set colors and define rows
                 let mut quote_rows = Vec::new();
-                for (_, quote) in quotes.iter() {
+                for (_, quote) in locked_quotes.iter() {
                     let row = match quote.get_state() {
                         api::QuoteState::POSITIVE => Row::StyledData(quote.as_row().into_iter(), pos_style),
                         api::QuoteState::NEGATIVE => Row::StyledData(quote.as_row().into_iter(), neg_style),
@@ -115,11 +130,11 @@ fn main() -> Result<(), io::Error> {
                 f.render_widget(table, chunks[1]);
             } else if tab_index.index < tab_index.max_size {
                 let ticker = titles[tab_index.index];
-                let historical_data = &historical_quotes.get_btree_map()[ticker];
+                let historical_data = &locked_historical_quotes.get_btree_map()[ticker];
 
                 // Get some y-bounds for the graph
-                let min_value = historical_quotes.get_min(ticker.to_string());
-                let max_value = historical_quotes.get_max(ticker.to_string());
+                let min_value = locked_historical_quotes.get_min(ticker.to_string());
+                let max_value = locked_historical_quotes.get_max(ticker.to_string());
                 let diff = (max_value - min_value) / 8.0;
                 let min_value = (min_value - diff).floor();
                 let max_value = (max_value + diff).ceil();
@@ -132,8 +147,8 @@ fn main() -> Result<(), io::Error> {
                     .style(Style::default().fg(Color::Cyan))
                     .data(historical_data)];
 
-                let min_time = historical_quotes.min_time(ticker.to_string());
-                let max_time = historical_quotes.max_time(ticker.to_string());
+                let min_time = locked_historical_quotes.min_time(ticker.to_string());
+                let max_time = locked_historical_quotes.max_time(ticker.to_string());
                 let chart = Chart::new(datasets)
                     .block(
                         Block::default()
@@ -190,8 +205,5 @@ fn main() -> Result<(), io::Error> {
                 _ => (),
             }
         }
-
-        // Wait for 5 seconds
-        thread::sleep(sleep_time);
     }
 }
