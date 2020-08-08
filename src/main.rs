@@ -145,7 +145,7 @@ fn main() -> Result<(), io::Error> {
                     )
                     .x_axis(
                         Axis::default()
-                            .title("X Axis")
+                            .title("Time")
                             .style(Style::default().fg(Color::Gray))
                             .labels(vec![
                                 Span::styled(
@@ -161,7 +161,7 @@ fn main() -> Result<(), io::Error> {
                     )
                     .y_axis(
                         Axis::default()
-                            .title("Y Axis")
+                            .title("Stock Price")
                             .style(Style::default().fg(Color::Gray))
                             .labels(vec![
                                 Span::styled(format!("{}", min_value), Style::default().add_modifier(Modifier::BOLD)),
