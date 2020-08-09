@@ -60,7 +60,7 @@ fn main() -> Result<(), io::Error> {
     let headers = api::Quote::get_table_headers();
     let thread_historical_quotes = historical_quotes.clone();
     let thread_quotes = quotes.clone();
-
+    let sleep_time = time::Duration::from_millis(100);
     // repeatedly fetch quotes based on timeout
     thread::spawn(move || {
         let sleep_time = time::Duration::from_secs(1);
@@ -205,5 +205,6 @@ fn main() -> Result<(), io::Error> {
                 _ => (),
             }
         }
+        thread::sleep(sleep_time);
     }
 }
