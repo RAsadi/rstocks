@@ -110,7 +110,7 @@ impl QuoteError {
 
 pub fn fetch_quote(ticker: &str) -> Result<Quote, QuoteError> {
     let quote_url = format!("https://query1.finance.yahoo.com/v11/finance/quoteSummary/{}", ticker);
-    let quote_url = format!("http://localhost:8080/{}", ticker);
+    // let quote_url = format!("http://localhost:8080/{}", ticker);
     let resp = ureq::get(&quote_url).query("modules", "summaryDetail,price").call();
     if resp.ok() {
         let json_body = match resp.into_string() {
