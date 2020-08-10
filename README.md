@@ -2,6 +2,9 @@
 
 Terminal UI for viewing your stocks.
 
+![Picture](screenshots/screenshot.png)
+![Video](screenshots/video_showcase.gif)
+
 Pulls all data from yahoo finance, so anything support by it's API is also supported by this.
 
 Built as a minimal project for testing out the `tui-rs` project for building terminal UIs, and

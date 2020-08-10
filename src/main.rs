@@ -30,9 +30,7 @@ fn fetch_quotes(
         let res = api::fetch_quote(&ticker);
         match res {
             Ok(r) => {
-                if quotes.contains_key(ticker) {
-                    historical_quotes.insert(ticker.to_string(), quotes[ticker].to_chartable());
-                }
+                historical_quotes.insert(ticker.to_string(), r.to_chartable());
                 quotes.insert(ticker.to_string(), r);
             }
             Err(e) => println!("could retrieve quote with ticker {}, error: {}", ticker, e),
